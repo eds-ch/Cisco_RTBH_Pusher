@@ -19,6 +19,8 @@ wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/bi_any_0_1
 #VERY BIG LIST! wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_anonymous.netset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/normshield_all_attack.ipset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/dshield.netset
+wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/snort_ipfilter.ipset
+wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/et_compromised.ipset
 
 # back to folder
 
@@ -28,12 +30,13 @@ cd ..
 
 iprange ./raw_lists/*.*set --merge > ip_list.txt
 
-# Delete LAN networks. Do it only if you have private LAN networks configured on your Edge routers
+# Exclude LAN networks and multicast from the list. Do it only if you have private LAN networks configured on your Edge routers
 
 sed -i '/10.0.0.0/d' ip_list.txt
 sed -i '/192.168.0.0/d' ip_list.txt
 sed -i '/172.16.0.0/d' ip_list.txt
 sed -i '/127.0.0.0/d' ip_list.txt
+sed -i '/224.0.0.0/d' ip_list.txt
 
 # create Cisco router commands list by adding 'prifix' and 'suffix' and convert CIDR to cisco mask format
 # See description in cisco_commands.py 
