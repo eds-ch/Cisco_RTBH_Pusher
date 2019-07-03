@@ -13,7 +13,7 @@ wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_le
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level2.netset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level3.netset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/voipbl.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_webserver.netset
+# A lot of false-positive wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_webserver.netset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level4.netset
 wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/bi_any_0_1d.ipset
 #VERY BIG LIST! wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_anonymous.netset
