@@ -1,4 +1,3 @@
-![schema](./schema.png)
 # Cisco_RTBH_Pusher
 A toolset for implementing Remotely Triggered Black Hole (RTBH) filtering using Cisco routers and IP lists from https://iplists.firehol.org/.
 
@@ -13,7 +12,7 @@ Before using this tool, you need to:
 2. Merges and deduplicates all lists into a single file
 3. Converts the merged list into Cisco IOS commands
 4. Deploys the commands to your TRIGGER router's running-config via FTP
-
+![schema](./schema.png)
 ## Installation Requirements
 1. IPrange - for merging IP ranges from different lists
    - https://github.com/firehol/iprange
