@@ -2,18 +2,28 @@
 # 
 # This script is used to convert IP lists from FireHOL to Cisco routers "ip route" command
 # to execute this command please use: python cisco_command.py 'firstCommandPrefix' 'secondCommandSuffix'
-# The list from FireHOL must be in the same directory with a name 'ip_list.txt'
-# Resulting file will have name 'cisco_commands.txt'
+# The list from FireHOL must be in the same directory with a name defined in config
 #
 # This script is based on subnet.py script from https://gist.github.com/nboubakr/4344773
 
 import sys
 import re
 
-#print sys.argv
+def read_config(filename):
+	config = {}
+	with open(filename, 'r') as f:
+		for line in f:
+			# Skip comments and empty lines
+			if line.strip() and not line.startswith('#'):
+				key, value = line.strip().split('=', 1)
+				config[key] = value
+	return config
 
-f = open('ip_list.txt', 'r')
-fw = open('cisco_commands.txt', 'w')
+# Read configuration
+config = read_config('configs/cisco_config.conf')
+
+f = open(config['INPUT_IP_LIST'], 'r')
+fw = open(config['OUTPUT_COMMANDS_FILE'], 'w')
 for line in f:
 
 	comment = line.find('#')

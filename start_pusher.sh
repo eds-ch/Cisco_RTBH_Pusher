@@ -1,46 +1,61 @@
 #!/bin/bash
 # This is the main script. You need execute it via CRON job.
-#
-# Delete old lists
-rm ./raw_lists/*.netset
-rm ./raw_lists/*.ipset
 
-# Download needed lists from https://iplists.firehol.org/ 
-# See description of each list inside 'raw_lists' directory
+echo "Starting IP lists processing..."
+
+# Delete old lists except .myset files
+echo "Cleaning old files in raw_lists directory..."
+find ./raw_lists/ -type f ! -name "*.myset" -delete
+
+# Change to raw_lists directory
 cd ./raw_lists/
 
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level1.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level2.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level3.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/voipbl.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_level4.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/bi_any_0_1d.ipset
-#VERY BIG LIST! wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/firehol_anonymous.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/normshield_all_attack.ipset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/dshield.netset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/snort_ipfilter.ipset
-wget https://raw.githubusercontent.com/ktsaou/blocklist-ipsets/master/et_compromised.ipset
+# Download IP lists from configured sources
+echo -e "\nDownloading IP lists from sources defined in configs/ip_lists.conf..."
+
+# Read active URLs from config file and download them
+echo -e "\nReading IP lists from configs/ip_lists.conf..."
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip empty lines and comments
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Download the file and show progress
+    echo "Downloading: $line"
+    wget -q "$line"
+done < ../configs/ip_lists.conf
 
 # back to folder
-
 cd ..
 
-# use iprange tool to merge all lists in one. See iprange manual
+# List all downloaded files
+echo -e "\nFiles downloaded and ready for processing:"
+ls -1 ./raw_lists/* | while read file; do
+    echo "- $(basename "$file")"
+done
 
-iprange ./raw_lists/*.*set --merge > ip_list.txt
+# use iprange tool to merge all lists in one
+echo -e "\nMerging all lists into ip_list.txt..."
+iprange ./raw_lists/*.* --merge > ip_list.txt
 
-# Exclude LAN networks and multicast from the list. Do it only if you have private LAN networks configured on your Edge routers
+# Exclude networks from the list using exclude_networks.conf
+echo -e "\nProcessing exclusions from configs/exclude_networks.conf:"
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip empty lines and comments
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Remove IP from the list and show progress
+    echo "Excluding: $line"
+    sed -i "/${line}/d" ip_list.txt
+done < configs/exclude_networks.conf
 
-sed -i '/10.0.0.0/d' ip_list.txt
-sed -i '/192.168.0.0/d' ip_list.txt
-sed -i '/172.16.0.0/d' ip_list.txt
-sed -i '/127.0.0.0/d' ip_list.txt
-sed -i '/224.0.0.0/d' ip_list.txt
+echo -e "\nFinal IP list created: ip_list.txt"
+echo "Total unique IPs in final list: $(wc -l < ip_list.txt)"
 
 # create Cisco router commands list by adding 'prifix' and 'suffix' and convert CIDR to cisco mask format
 # See description in cisco_commands.py 
-
-python cisco_commands.py 'ip route' 'Null0 tag 66'
+python scripts/cisco_commands.py 'ip route' 'Null0 tag 66'
 
 # Add first line to cisco_commands.txt to remove all old static routes from Cisco ( no ip route * )
 
@@ -58,5 +73,7 @@ cp cisco_commands.txt /srv/ftp/upload
 # https://github.com/ktbyers/netmiko
 # you must install netmico lib from user who whill execute the script!
 
-python send_command_prompting.py
+echo -e "\nExecuting command on Cisco IOS remotely..."
+python3 scripts/send_command_prompting.py
 
+echo "IP lists processing completed."

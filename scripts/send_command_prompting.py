@@ -10,17 +10,32 @@
 # Please make changes to the file with your settings
 #
 from netmiko import Netmiko
+from netmiko import ConnectHandler
 from getpass import getpass
 
+def read_config(filename):
+    config = {}
+    with open(filename, 'r') as f:
+        for line in f:
+            # Skip comments and empty lines
+            if line.strip() and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                config[key] = value
+    return config
+
+# Read configuration
+config = read_config('configs/cisco_config.conf')
+
 cisco1 = {
-    "host": "XXX.XXX.XXX.XXX",
-    "username": "trigger",
-    "password": "PASSWORD",
-    "device_type": "cisco_ios",
+    "host": config['CISCO_HOST'],
+    "username": config['CISCO_USERNAME'],
+    "password": config['CISCO_PASSWORD'],
+    "device_type": config['CISCO_DEVICE_TYPE'],
 }
 
-net_connect = Netmiko(**cisco1)
-command = "copy ftp://XXX.XXX.XXX.XXX/upload/cisco_commands.txt running-config"
+#net_connect = Netmiko(**cisco1)
+net_connect = ConnectHandler(**cisco1)
+command = f"copy ftp://{config['FTP_SERVER']}{config['FTP_PATH']} running-config"
 print()
 print(net_connect.find_prompt())
 output = net_connect.send_command_timing(command)
