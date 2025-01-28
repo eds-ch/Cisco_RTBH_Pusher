@@ -1,3 +1,4 @@
+![schema](./schema.png)
 # Cisco_RTBH_Pusher
 A toolset for implementing Remotely Triggered Black Hole (RTBH) filtering using Cisco routers and IP lists from https://iplists.firehol.org/.
 
