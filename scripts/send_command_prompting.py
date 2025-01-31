@@ -1,48 +1,105 @@
-#!/usr/bin/env python
-#
-# This script is used to execute remote command with a prompt in a Cisco router.
-# Is based on Netmico script https://github.com/ktbyers/netmiko/tree/develop/examples/use_cases
-#
-# This script will run a command on a TRIGGER Cisco router to download routes from FTP and deploy them in to running-config
-# 
-# To execute this script you need to install Netmico lib first. See https://github.com/ktbyers/netmiko#Installation
-#
-# Please make changes to the file with your settings
-#
-from netmiko import Netmiko
-from netmiko import ConnectHandler
-from getpass import getpass
+#!/usr/bin/env python3
+
+"""
+Cisco Router Configuration Uploader
+
+This script uploads and applies configuration commands to a Cisco router.
+It performs two main tasks:
+1. Uploads the generated commands file to router using SCP
+2. Applies the configuration using 'copy' command via SSH
+
+The script uses Scrapli for SSH connectivity and Paramiko for SCP file transfer.
+All connection parameters are read from cisco_config.conf file.
+"""
+
+import paramiko
+from scp import SCPClient
+from scrapli import Scrapli
+from scrapli.exceptions import ScrapliException
+from scrapli.driver.core import IOSXEDriver
 
 def read_config(filename):
+    """Read configuration from file.
+    
+    Args:
+        filename (str): Path to configuration file
+        
+    Returns:
+        dict: Configuration parameters
+    """
     config = {}
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         for line in f:
-            # Skip comments and empty lines
             if line.strip() and not line.startswith('#'):
                 key, value = line.strip().split('=', 1)
                 config[key] = value
     return config
 
-# Read configuration
-config = read_config('configs/cisco_config.conf')
+def upload_file(config):
+    """Upload generated commands file to Cisco router using SCP protocol.
+    
+    Args:
+        config (dict): Configuration parameters from cisco_config.conf
+    """
+    dest = config['SCP_DESTINATION']
+    if ":/" not in dest:
+        dest = dest.replace(":", ":/", 1)
+    
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(
+            hostname=config['CISCO_HOST'],
+            username=config['CISCO_USERNAME'],
+            password=config['CISCO_PASSWORD'],
+            allow_agent=False,
+            look_for_keys=False,
+        )
+        
+        with SCPClient(client.get_transport()) as scp:
+            print(f"Started uploading file to {dest}...")
+            scp.put(config['OUTPUT_COMMANDS_FILE'], dest)
+            print("File uploaded successfully")
+            
+    finally:
+        client.close()
 
-cisco1 = {
-    "host": config['CISCO_HOST'],
-    "username": config['CISCO_USERNAME'],
-    "password": config['CISCO_PASSWORD'],
-    "device_type": config['CISCO_DEVICE_TYPE'],
-}
+def apply_config(config):
+    """Apply configuration from uploaded file to router.
+    
+    Args:
+        config (dict): Configuration parameters from cisco_config.conf
+    """
+    device = {
+        "host": config['CISCO_HOST'],
+        "auth_username": config['CISCO_USERNAME'],
+        "auth_password": config['CISCO_PASSWORD'],
+        "auth_strict_key": False,
+        "timeout_socket": 60,
+        "timeout_transport": 120,
+    }
 
-#net_connect = Netmiko(**cisco1)
-net_connect = ConnectHandler(**cisco1)
-command = f"copy ftp://{config['FTP_SERVER']}{config['FTP_PATH']} running-config"
-print()
-print(net_connect.find_prompt())
-output = net_connect.send_command_timing(command)
-if "running-config" in output:
-    output += net_connect.send_command_timing(
-        "running-config", strip_prompt=False, strip_command=False
-    )
-net_connect.disconnect()
-print(output)
-print()
+    try:
+        print(f"Connecting to {device['host']}...")
+        with IOSXEDriver(**device) as conn:
+            print("Initiating configuration copy...")
+            
+            response = conn.send_interactive(
+                [
+                    (f"copy {config['SCP_DESTINATION']} running-config", "Destination filename [running-config]?", True),
+                ],
+                failed_when_contains=["%Error", "Invalid"],
+                timeout_ops=300
+            )
+            
+            print("\nCommand execution result:")
+            print(response.result)
+            
+    except ScrapliException as e:
+        print(f"Execution error: {str(e)}")
+        exit(1)
+
+if __name__ == "__main__":
+    config = read_config('configs/cisco_config.conf')
+    upload_file(config)
+    apply_config(config)

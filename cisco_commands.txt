@@ -1,1 +1,6 @@
 no ip route *
+ip route 5.253.59.162 255.255.255.255 Null0 tag 66
+ip route 45.76.181.158 255.255.255.255 Null0 tag 66
+ip route 144.202.34.169 255.255.255.255 Null0 tag 66
+ip route 185.77.174.191 255.255.255.255 Null0 tag 66
+end

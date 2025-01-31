@@ -1,79 +1,82 @@
 #!/bin/bash
-# This is the main script. You need execute it via CRON job.
+#
+# Cisco RTBH Automation Main Script
+#
+# This script orchestrates the entire RTBH process:
+# 1. Downloads IP blocklists from configured sources
+# 2. Merges and deduplicates IP lists
+# 3. Applies exclusion rules
+# 4. Generates Cisco IOS commands
+# 5. Uploads and applies configuration to router
+#
+# Usage: 
+# - Execute directly: ./start_pusher.sh
+# - Execute without router upload: ./start_pusher.sh --no-upload
+# - Schedule via cron for automatic updates
+#
+# Requirements:
+# - Python 3 with netaddr library
+# - wget for downloading lists
+# - Scrapli and Paramiko for router communication
 
-echo "Starting IP lists processing..."
+UPLOAD_ENABLED=true
+if [[ "${1:-}" == "--no-upload" ]]; then
+    UPLOAD_ENABLED=false
+    printf "No-upload mode enabled\n"
+fi
+
+printf "Starting IP lists processing...\n"
 
 # Delete old lists except .myset files
-echo "Cleaning old files in raw_lists directory..."
-find ./raw_lists/ -type f ! -name "*.myset" -delete
+printf "Cleaning up old lists...\n"
+find "./raw_lists/" -type f ! -name "*.myset" -delete
 
 # Change to raw_lists directory
-cd ./raw_lists/
+cd "./raw_lists/" || exit 1
 
 # Download IP lists from configured sources
-echo -e "\nDownloading IP lists from sources defined in configs/ip_lists.conf..."
+printf "\nDownloading IP lists from configs/ip_lists.conf...\n"
 
 # Read active URLs from config file and download them
-echo -e "\nReading IP lists from configs/ip_lists.conf..."
-while IFS= read -r line || [[ -n "$line" ]]; do
+printf "\nReading IP lists from configs/ip_lists.conf...\n"
+while IFS= read -r line || [[ -n "${line}" ]]; do
     # Skip empty lines and comments
-    [[ -z "$line" ]] && continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
     
     # Download the file and show progress
-    echo "Downloading: $line"
-    wget -q "$line"
-done < ../configs/ip_lists.conf
+    printf "Downloading: %s\n" "${line}"
+    wget -q "${line}"
+done < "../configs/ip_lists.conf"
 
 # back to folder
-cd ..
+cd .. || exit 1
 
 # List all downloaded files
-echo -e "\nFiles downloaded and ready for processing:"
-ls -1 ./raw_lists/* | while read file; do
-    echo "- $(basename "$file")"
+printf "\nFiles downloaded and ready for processing:\n"
+find "./raw_lists/" -type f -print0 | while IFS= read -r -d '' file; do
+    printf "%s%s\n" "- " "$(basename "${file}")"
 done
 
-# use iprange tool to merge all lists in one
-echo -e "\nMerging all lists into ip_list.txt..."
-iprange ./raw_lists/*.* --merge > ip_list.txt
+# Use Python and netaddr to merge lists
+printf "\nMerging lists into ip_list.txt...\n"
+python3 scripts/merge_ip_ranges.py "./raw_lists/*" "configs/exclude_networks.conf" "ip_list.txt"
 
-# Exclude networks from the list using exclude_networks.conf
-echo -e "\nProcessing exclusions from configs/exclude_networks.conf:"
-while IFS= read -r line || [[ -n "$line" ]]; do
-    # Skip empty lines and comments
-    [[ -z "$line" ]] && continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    
-    # Remove IP from the list and show progress
-    echo "Excluding: $line"
-    sed -i "/${line}/d" ip_list.txt
-done < configs/exclude_networks.conf
+printf "\nFinal IP list created: ip_list.txt\n"
+printf "Total unique IPs: %s\n" "$(wc -l < ip_list.txt)"
 
-echo -e "\nFinal IP list created: ip_list.txt"
-echo "Total unique IPs in final list: $(wc -l < ip_list.txt)"
+# Generate Cisco commands list
+python3 scripts/cisco_commands.py 'ip route' 'Null0 tag 66'
 
-# create Cisco router commands list by adding 'prifix' and 'suffix' and convert CIDR to cisco mask format
-# See description in cisco_commands.py 
-python scripts/cisco_commands.py 'ip route' 'Null0 tag 66'
+# Post-process commands file
+sed -i '/^$/d' "cisco_commands.txt"  # Remove empty lines
+sed -i '1s/^/no ip route *\n/' "cisco_commands.txt"  # Add cleanup routes command at the beginning
 
-# Add first line to cisco_commands.txt to remove all old static routes from Cisco ( no ip route * )
+if "${UPLOAD_ENABLED}"; then
+    printf "\nUploading commands to Cisco router...\n"
+    python3 scripts/send_command_prompting.py
+else
+    printf "\nSkipping router upload\n"
+fi
 
-sed -i '1s/^/no ip route *\n/' cisco_commands.txt
-
-# Copy Cisco commands file to local FTP server folder. Cisco router will download this command set from FTP and execute it locally.
-# Add local user to Ftp group: usermod -a -G ftp exampleusername
-# Please change it according to your configuration
-
-cp cisco_commands.txt /srv/ftp/upload
-
-# Execute command on Cisco IOS remotely. 
-# Command will download config from local FTP server and put it to Cisco router running-config
-# Script is based on Netmico lib
-# https://github.com/ktbyers/netmiko
-# you must install netmico lib from user who whill execute the script!
-
-echo -e "\nExecuting command on Cisco IOS remotely..."
-python3 scripts/send_command_prompting.py
-
-echo "IP lists processing completed."
+printf "\nIP lists processing completed.\n"
