@@ -18,7 +18,7 @@ A tool for automated Remotely Triggered Black Hole (RTBH) filtering on Cisco rou
 ## Installation Requirements
 1. Python 3.6+ with packages:
    - netaddr (for IP processing)
-   - scrapli (for router communication)
+   - netmiko (for router communication)
    - paramiko (for SCP transfers)
    - aiohttp (for downloading IP lists)
    - configparser (for configuration handling)
@@ -28,6 +28,26 @@ A tool for automated Remotely Triggered Black Hole (RTBH) filtering on Cisco rou
    - Router connection settings in `[router]` section
    - IP blocklist URLs in `[blocklists]` section
    - Networks to exclude in `[exclude_networks]` section
+
+Example configuration:
+```ini
+[router]
+CISCO_HOST=192.168.1.1
+CISCO_USERNAME=admin
+CISCO_PASSWORD=secret
+SCP_DESTINATION=bootflash:/cisco_commands.txt
+INPUT_IP_LIST=ip_list.txt
+OUTPUT_COMMANDS_FILE=cisco_commands.txt
+
+[blocklists]
+url1=https://iplists.firehol.org/files/firehol_level1.netset
+url2=https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt
+
+[exclude_networks]
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+```
 
 ## Usage
 Basic execution:
@@ -46,10 +66,20 @@ To permanently add your own IP addresses to the block list:
 2. Add IP addresses in CIDR format (one per line)
 3. Example: `raw_lists/custom_blocks.myset`
 
+Example custom_blocks.myset:
+```
+1.2.3.0/24
+2.3.4.0/24
+5.6.7.8/32
+```
+
 ## Security Notes
 - Store `configs/rtbh.conf` securely - it contains credentials
 - Review exclusion list carefully before deployment
 - Test new IP lists with `--no-upload` first
+- Use strong passwords for router access
+- Consider using SSH keys instead of passwords
+- Regularly update blocklists sources
 
 ![Cisco RTBH](images/schema.png)
 

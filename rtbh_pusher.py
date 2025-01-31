@@ -10,23 +10,26 @@ This script combines all RTBH automation functionality:
 5. Uploads and applies configuration to router
 """
 
+# Standard library imports
 import os
 import sys
 import glob
 import argparse
 import asyncio
-import aiohttp
 import ipaddress
 import re
 import configparser
-from aiohttp import ClientTimeout
+import time
+from typing import List, Tuple, Dict, Optional
 from urllib.parse import urlparse
+
+# Third party imports
+import aiohttp
+from aiohttp import ClientTimeout
 from netaddr import IPSet, IPNetwork
 import paramiko
 from scp import SCPClient
-from scrapli.exceptions import ScrapliException
-from scrapli.driver.core import IOSXEDriver
-from typing import List, Tuple, Dict, Optional
+from netmiko import ConnectHandler
 
 # Constants
 CHUNK_SIZE = 8192
@@ -46,7 +49,10 @@ def read_config(section: str) -> Dict[str, str]:
     Returns:
         Dictionary containing configuration key-value pairs
     """
-    config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes='#')
+    config = configparser.ConfigParser(
+        allow_no_value=True,
+        inline_comment_prefixes='#'
+    )
     if not config.read(CONFIG_FILE):
         print(f"Error: Config file {CONFIG_FILE} not found")
         sys.exit(1)
@@ -358,42 +364,58 @@ def apply_config(config: dict) -> None:
     """Apply configuration to router using SSH
     
     Args:
-        config: Configuration parameters from cisco_config.conf
-    
+        config: Configuration dictionary containing router credentials
+        
     Raises:
-        ScrapliException: If there's an error during configuration
+        Exception: If connection or command execution fails
     """
     device = {
+        "device_type": "cisco_ios",
         "host": config['CISCO_HOST'],
-        "auth_username": config['CISCO_USERNAME'],
-        "auth_password": config['CISCO_PASSWORD'],
-        "auth_strict_key": False,
-        "timeout_socket": 60,
-        "timeout_transport": 120,
+        "username": config['CISCO_USERNAME'],
+        "password": config['CISCO_PASSWORD'],
+        "secret": config['CISCO_PASSWORD'],
+        "port": 22,
+        "global_delay_factor": 2,
     }
 
     try:
         print(f"Connecting to {device['host']}...")
-        with IOSXEDriver(**device) as conn:
+        with ConnectHandler(**device) as net_connect:
             print("Initiating configuration copy...")
             
-            response = conn.send_interactive(
-                [
-                    (
-                        f"copy {config['SCP_DESTINATION']} running-config",
-                        "Destination filename [running-config]?",
-                        True
-                    ),
-                ],
-                failed_when_contains=["%Error", "Invalid"],
-                timeout_ops=300
+            # Send copy command and wait for first prompt
+            command = f"copy {config['SCP_DESTINATION']} running-config"
+            output = net_connect.send_command_timing(
+                command_string=command,
+                strip_prompt=False,
+                strip_command=False
             )
             
-            print("\nCommand execution result:")
-            print(response.result)
+            # If filename prompt appears, send confirmation
+            if "Destination filename" in output:
+                output += net_connect.send_command_timing(
+                    command_string="\n",
+                    strip_prompt=False,
+                    strip_command=False
+                )
             
-    except ScrapliException as e:
-        print(f"Execution error: {str(e)}")
+            # If confirm prompt appears, send confirmation
+            if "confirm" in output:
+                output += net_connect.send_command_timing(
+                    command_string="\n",
+                    strip_prompt=False,
+                    strip_command=False
+                )
+            
+            print("\nCommand execution result:")
+            print(output)
+            
+            if "%Error" in output or "Invalid" in output:
+                raise Exception("Command execution failed")
+                
+    except Exception as e:
+        print(f"Error: {str(e)}")
         sys.exit(1)
 
 def main() -> None:
