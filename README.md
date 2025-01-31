@@ -20,24 +20,24 @@ A tool for automated Remotely Triggered Black Hole (RTBH) filtering on Cisco rou
    - netaddr (for IP processing)
    - scrapli (for router communication)
    - paramiko (for SCP transfers)
-
-2. System utilities:
-   - wget (for downloading IP lists)
+   - aiohttp (for downloading IP lists)
+   - configparser (for configuration handling)
 
 ## Configuration
-1. Edit router connection settings in `cisco_config.conf`
-2. Configure IP sources in `configs/ip_lists.conf`
-3. Add trusted networks to `configs/exclude_networks.conf`
+1. Edit `configs/rtbh.conf` which contains:
+   - Router connection settings in `[router]` section
+   - IP blocklist URLs in `[blocklists]` section
+   - Networks to exclude in `[exclude_networks]` section
 
 ## Usage
 Basic execution:
 ```
-./start_pusher.sh
+python3 rtbh_pusher.py
 ```
 
 Test mode (no router upload):
 ```
-./start_pusher.sh --no-upload
+python3 rtbh_pusher.py --no-upload
 ```
 
 ## Custom IP Lists
@@ -47,7 +47,7 @@ To permanently add your own IP addresses to the block list:
 3. Example: `raw_lists/custom_blocks.myset`
 
 ## Security Notes
-- Store `cisco_config.conf` securely - it contains credentials
+- Store `configs/rtbh.conf` securely - it contains credentials
 - Review exclusion list carefully before deployment
 - Test new IP lists with `--no-upload` first
 
