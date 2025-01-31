@@ -51,7 +51,7 @@ To permanently add your own IP addresses to the block list:
 - Review exclusion list carefully before deployment
 - Test new IP lists with `--no-upload` first
 
-![alt text]schema.png
+![Cisco RTBH](images/schema.png)
 
 ## Benefits of RTBH (from cisco.com)
 Benefits of Remotely Triggered Black Hole Filtering
