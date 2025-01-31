@@ -51,6 +51,8 @@ To permanently add your own IP addresses to the block list:
 - Review exclusion list carefully before deployment
 - Test new IP lists with `--no-upload` first
 
+![image]schema.png
+
 ## Benefits of RTBH (from cisco.com)
 Benefits of Remotely Triggered Black Hole Filtering
 Black holes, from a network security perspective, are placed in the network where traffic is forwarded and dropped. Once an attack has been
