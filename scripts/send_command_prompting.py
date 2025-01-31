@@ -57,7 +57,7 @@ def upload_file(config):
         )
         
         with SCPClient(client.get_transport()) as scp:
-            print(f"Started uploading file to {dest}...")
+            print(f"Started uploading file to {config['CISCO_HOST']} ({dest})...")
             scp.put(config['OUTPUT_COMMANDS_FILE'], dest)
             print("File uploaded successfully")
             

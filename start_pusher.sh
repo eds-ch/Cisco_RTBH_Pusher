@@ -27,6 +27,12 @@ fi
 
 printf "Starting IP lists processing...\n"
 
+# Check if raw_lists directory exists, create if not
+if [ ! -d "./raw_lists" ]; then
+    printf "Creating raw_lists directory...\n"
+    mkdir -p "./raw_lists"
+fi
+
 # Delete old lists except .myset files
 printf "Cleaning up old lists...\n"
 find "./raw_lists/" -type f ! -name "*.myset" -delete
