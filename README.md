@@ -25,10 +25,9 @@ A tool for automated Remotely Triggered Black Hole (RTBH) filtering on Cisco rou
    - wget (for downloading IP lists)
 
 ## Configuration
-1. Copy `configs/cisco_config.conf.example` to `configs/cisco_config.conf`
-2. Edit router connection settings in `cisco_config.conf`
-3. Configure IP sources in `configs/ip_lists.conf`
-4. Add trusted networks to `configs/exclude_networks.conf`
+1. Edit router connection settings in `cisco_config.conf`
+2. Configure IP sources in `configs/ip_lists.conf`
+3. Add trusted networks to `configs/exclude_networks.conf`
 
 ## Usage
 Basic execution:
